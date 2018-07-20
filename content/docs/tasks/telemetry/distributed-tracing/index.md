@@ -19,29 +19,30 @@ example application for this task.
 
 *   Setup Istio by following the instructions in the [Installation guide](/docs/setup/).
 
-    Either use the `istio-demo.yaml` (or `istio-demo-auth.yaml`) template, which includes tracing support, or
-    use the helm chart with tracing enabled using the `--set tracing.enabled=true` option.
+    Either use the `istio-demo.yaml` or `istio-demo-auth.yaml` template, which includes tracing support, or
+    use the helm chart with tracing enabled by setting the `--set tracing.enabled=true` option.
 
 * Deploy the [Bookinfo](/docs/examples/bookinfo/) sample application.
 
 ## Accessing the dashboard
 
-Setup access to the tracing dashboard URL using port-forwarding:
+Setup access to the Jaeger dashboard by using port-forwarding:
 
 {{< text bash >}}
 $ kubectl port-forward -n istio-system $(kubectl get pod -n istio-system -l app=jaeger -o jsonpath='{.items[0].metadata.name}') 16686:16686 &
 {{< /text >}}
 
-Then open your browser at [http://localhost:16686](http://localhost:16686)
+Access the Jaeger dashboard by opening your browser to [http://localhost:16686](http://localhost:16686).
 
 ## Generating traces using the Bookinfo sample
 
 With the Bookinfo application up and running, generate trace information by accessing
 `http://$GATEWAY_URL/productpage` one or more times.
 
-If you now look at the dashboard, you should see something similar to the following:
+From the left-hand pane of the Jaeger dashboard, select productpage from the Service drop-down list and click
+Find Traces. You should see something similar to the following:
 
-{{< image width="100%" ratio="42.35%"
+{{< image width="100%" ratio="52.68%"
     link="./istio-tracing-list.png"
     caption="Tracing Dashboard"
     >}}
@@ -50,7 +51,7 @@ If you click on the top (most recent) trace, you should see the details correspo
 latest refresh of the `/productpage`.
 The page should look something like this:
 
-{{< image width="100%" ratio="42.35%"
+{{< image width="100%" ratio="36.32%"
     link="./istio-tracing-details.png"
     caption="Detailed Trace View"
     >}}
@@ -61,11 +62,14 @@ Although every service has the same label, `istio-proxy`, because the tracing is
 the Istio sidecar (Envoy proxy) which wraps the call to the actual service,
 the label of the destination (to the right) identifies the service for which the time is represented by each line.
 
-The first line represents the external call to the `productpage` service. The label `192.168.64.3:32000` is the host
-value used for the external request (i.e., $GATEWAY_URL). As you can see in the trace,
-the request took a total of roughly 290ms to complete. During its execution, the `productpage` called the `details` service,
-which took about 24ms, and then called the `reviews` service.
-The `reviews` service took about 243ms to execute, including a 15ms call to `ratings`.
+The productpage to reviews call is represented by two spans in the trace. The first of the two spans (labeled productpage
+reviews.default.svc.cluster.local:9080/) represents the client-side span for the call. It took 24.13ms . The second span
+(labeled reviews reviews.default.svc.cluster.local:9080/) is a child of the first span and represents the server-side
+span for the call. It took 22.99ms .
+
+The trace for the call to the reviews services reveals two subsequent RPC's in the trace. The first is to the istio-policy
+service, reflecting the server-side Check call made for the service to authorize access. The second is the call out to
+the ratings service.
 
 ## Understanding what happened
 
